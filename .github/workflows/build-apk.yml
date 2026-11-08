@@ -9,11 +9,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Descargar el código del repositorio usando la versión v4
+      # 1. Descargar el código del repositorio
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # 2. Configurar Java JDK usando la versión v5 (resuelve la advertencia de depreciación)
+      # 2. Configurar Java JDK 17
       - name: Configurar Java JDK 17
         uses: actions/setup-java@v5
         with:
@@ -21,20 +21,30 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. Configurar Android SDK de manera estable
+      # 3. Configurar Android SDK
       - name: Configurar Android SDK
         uses: android-actions/setup-android@v4
 
-      # Aquí abajo deben ir los comandos específicos de tu proyecto para compilar...
-      # Por ejemplo, si es Android nativo:
+      # 4. Localizar gradlew y otorgar permisos de ejecución
       - name: Otorgar permisos de ejecución a gradlew
-        run: find . -name gradlew -exec chmod +x {} +
-        
+        run: |
+          GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+          if [ -z "$GRADLEW_PATH" ]; then
+            echo "Error: No se encontró el archivo 'gradlew' en todo el proyecto."
+            exit 1
+          fi
+          chmod +x "$GRADLEW_PATH"
 
-      # Ejemplo de compilación con Gradle:
+      # 5. Compilar el archivo APK en el directorio exacto donde esté gradlew
       - name: Compilar APK de lanzamiento
         run: |
-  GRADLEW_PATH=$(find . -name gradlew | head -n 1)
-  cd $(dirname "$GRADLEW_PATH")
-  ./gradlew assembleDebug
+          GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+          cd $(dirname "$GRADLEW_PATH")
+          ./gradlew assembleDebug --stacktrace
 
+      # 6. Subir el APK generado como Artefacto descargable
+      - name: Subir APK generado
+        uses: actions/upload-artifact@v4
+        with:
+          name: Planilla-Arbitro-Debug-APK
+          path: '**/build/outputs/apk/debug/*.apk'
