@@ -1,0 +1,32 @@
+# Node.js
+node_modules/
+*/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Android / Gradle
+.gradle/
+**/build/
+!frontend/android/app/build.gradle
+!frontend/android/build.gradle
+local.properties
+*.apk
+*.aab
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+Thumbs.db
+[Dd]esktop.ini
+.DS_Store

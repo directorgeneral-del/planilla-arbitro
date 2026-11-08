@@ -1,0 +1,593 @@
+<!DOCTYPE html>
+<html lang="es" class="h-full bg-slate-950">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#090d16">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
+  <title>Planilla Digital Árbitro | SaaS Torneo de Fútbol</title>
+  
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            pitch: '#0f172a',
+            goal: '#10b981',
+            yellowCard: '#facc15',
+            redCard: '#ef4444',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace', 'ui-monospace'],
+          }
+        }
+      }
+    }
+  </script>
+  <!-- Google Fonts & Lucide Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@700;800&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <style>
+    /* Prevent rubber banding on iOS mobile */
+    body {
+      overscroll-behavior-y: none;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+    .touch-btn:active {
+      transform: scale(0.96);
+    }
+    /* Pulse glow for match in progress */
+    @keyframes pulseGlow {
+      0%, 100% { box-shadow: 0 0 15px rgba(16, 185, 129, 0.4); }
+      50% { box-shadow: 0 0 25px rgba(16, 185, 129, 0.7); }
+    }
+    .timer-active {
+      animation: pulseGlow 2s infinite ease-in-out;
+    }
+    /* Custom scrollbars */
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #334155;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body class="h-full flex flex-col text-slate-100 antialiased font-sans bg-slate-950 pb-safe">
+
+  <!-- TOP BAR: Estado del Arbitraje y Partido -->
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 px-4 py-3 sticky top-0 z-30">
+    <div class="max-w-md mx-auto flex items-center justify-between">
+      <div class="flex items-center space-x-2">
+        <div class="w-8 h-8 rounded-lg bg-emerald-600/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+          <i data-lucide="shield" class="w-4 h-4"></i>
+        </div>
+        <div>
+          <div class="flex items-center space-x-1.5">
+            <span class="text-xs font-bold uppercase tracking-wider text-emerald-400">ÁRBITRO CENTRAL</span>
+            <span id="backendBadge" class="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-slate-400 font-mono">CONECTADO</span>
+          </div>
+          <h1 id="matchCompetition" class="text-xs text-slate-400 truncate max-w-[200px]">Copa de Verano 2026 • Primera A</h1>
+        </div>
+      </div>
+      
+      <!-- Whistle sound toggle & Sync button -->
+      <div class="flex items-center space-x-2">
+        <button id="whistleBtn" title="Silbato de prueba" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-amber-400 border border-slate-700">
+          <i data-lucide="volume-2" class="w-4 h-4"></i>
+        </button>
+        <button id="refreshBtn" title="Sincronizar" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 flex items-center justify-center text-slate-300 border border-slate-700">
+          <i data-lucide="refresh-cw" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- MAIN SCROLLABLE CONTAINER (Mobile Optimized) -->
+  <main class="flex-1 overflow-y-auto px-4 py-3 max-w-md w-full mx-auto space-y-4 pb-24">
+
+    <!-- VIEW 1: EN VIVO (Cancha) -->
+    <div id="viewLive" class="space-y-4">
+
+      <!-- MARCADOR EN VIVO (Live Scoreboard) -->
+      <section class="bg-gradient-to-b from-slate-900 to-slate-900/80 rounded-2xl p-4 border border-slate-800 shadow-xl relative overflow-hidden">
+        <div class="text-center mb-2">
+          <span id="venueDisplay" class="text-[11px] font-medium text-slate-400 flex items-center justify-center gap-1">
+            <i data-lucide="map-pin" class="w-3 h-3 text-emerald-400"></i>
+            Estadio Olaya • Cancha Principal
+          </span>
+        </div>
+
+        <div class="grid grid-cols-7 items-center">
+          <!-- Equipo Local -->
+          <div class="col-span-3 text-center flex flex-col items-center">
+            <div id="homeTeamBadge" class="w-14 h-14 rounded-2xl bg-blue-900/40 border-2 border-blue-500 flex items-center justify-center text-white font-black text-xl shadow-lg mb-1.5">
+              HAL
+            </div>
+            <h2 id="homeTeamName" class="text-sm font-extrabold text-white leading-tight line-clamp-1">Los Halcones</h2>
+            <span class="text-[10px] font-semibold text-blue-400 uppercase tracking-wider">LOCAL</span>
+          </div>
+
+          <!-- Marcador Gigante -->
+          <div class="col-span-1 text-center flex flex-col items-center justify-center">
+            <div class="flex items-center justify-center space-x-1.5 font-mono font-black text-4xl text-white">
+              <span id="homeScore">0</span>
+              <span class="text-slate-600">:</span>
+              <span id="awayScore">0</span>
+            </div>
+            <div id="matchStatusBadge" class="mt-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+              PROGRAMADO
+            </div>
+          </div>
+
+          <!-- Equipo Visitante -->
+          <div class="col-span-3 text-center flex flex-col items-center">
+            <div id="awayTeamBadge" class="w-14 h-14 rounded-2xl bg-red-900/40 border-2 border-red-500 flex items-center justify-center text-white font-black text-xl shadow-lg mb-1.5">
+              ASM
+            </div>
+            <h2 id="awayTeamName" class="text-sm font-extrabold text-white leading-tight line-clamp-1">San Martín</h2>
+            <span class="text-[10px] font-semibold text-red-400 uppercase tracking-wider">VISITA</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- CRONÓMETRO DE PARTIDO PROFESIONAL -->
+      <section class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl text-center relative">
+        <div class="flex items-center justify-between mb-2 px-1">
+          <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="timer" class="w-3.5 h-3.5 text-emerald-400"></i>
+            CRONÓMETRO OFICIAL
+          </span>
+          <div class="flex items-center gap-1">
+            <button id="periodSelectorBtn" class="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-emerald-400 font-bold border border-slate-700 flex items-center gap-1">
+              <span id="currentPeriodLabel">1T (Primer Tiempo)</span>
+              <i data-lucide="chevron-down" class="w-3 h-3"></i>
+            </button>
+          </div>
+        </div>
+
+        <!-- Dígitos Gigantes del Cronómetro -->
+        <div id="timerDisplayBox" class="py-3 px-4 rounded-xl bg-slate-950 border border-slate-800/80 my-2 transition-all duration-300">
+          <div id="stopwatchDisplay" class="font-mono font-black text-5xl md:text-6xl text-emerald-400 tracking-wider">
+            00:00
+          </div>
+          <div class="flex items-center justify-center gap-2 mt-1">
+            <span id="addedTimeLabel" class="hidden text-xs font-mono font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+              +0 min añadido
+            </span>
+            <span id="periodMinuteText" class="text-xs text-slate-400 font-mono">
+              Minuto de juego: <span id="currentMinuteCounter" class="text-white font-bold">0'</span>
+            </span>
+          </div>
+        </div>
+
+        <!-- Controles Principales del Cronómetro -->
+        <div class="grid grid-cols-3 gap-2 mt-3">
+          <!-- Botón Iniciar / Pausar Gigante -->
+          <button id="toggleTimerBtn" class="touch-btn col-span-2 py-3 px-4 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/30 transition-all">
+            <i id="toggleTimerIcon" data-lucide="play" class="w-5 h-5 fill-white"></i>
+            <span id="toggleTimerText">INICIAR PARTIDO</span>
+          </button>
+
+          <!-- Botón Reset / Siguiente Período -->
+          <button id="nextPeriodBtn" class="touch-btn col-span-1 py-3 px-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs flex flex-col items-center justify-center border border-slate-700 transition-all">
+            <i data-lucide="fast-forward" class="w-4 h-4 mb-0.5 text-amber-400"></i>
+            <span id="nextPeriodText">FIN 1T</span>
+          </button>
+        </div>
+
+        <!-- Botones de Tiempo Añadido Rápido -->
+        <div class="flex items-center justify-center gap-2 mt-2.5 pt-2 border-t border-slate-800/60">
+          <span class="text-[11px] text-slate-400 font-medium">Tiempo Adicional:</span>
+          <button class="add-time-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 font-mono font-bold border border-slate-700" data-minutes="1">+1m</button>
+          <button class="add-time-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 font-mono font-bold border border-slate-700" data-minutes="2">+2m</button>
+          <button class="add-time-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 font-mono font-bold border border-slate-700" data-minutes="3">+3m</button>
+          <button class="add-time-btn px-2.5 py-1 rounded-md bg-slate-800 hover:bg-slate-700 text-xs text-amber-300 font-mono font-bold border border-slate-700" data-minutes="5">+5m</button>
+        </div>
+      </section>
+
+      <!-- BOTONES GIGANTES DE ACCIÓN TÁCTICA PARA EL ÁRBITRO -->
+      <section class="space-y-2.5">
+        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider px-1 flex items-center justify-between">
+          <span>Acciones Rápidas en Cancha</span>
+          <span class="text-[10px] text-slate-400 lowercase">toca para registrar</span>
+        </h3>
+
+        <!-- BOTÓN GOL GIGANTE -->
+        <button id="btnActionGoal" class="touch-btn w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-black text-2xl flex items-center justify-between shadow-xl shadow-emerald-950/50 border border-emerald-400/30 transition-transform">
+          <div class="flex items-center gap-3">
+            <div class="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-white text-2xl backdrop-blur">
+              ⚽
+            </div>
+            <div class="text-left">
+              <div class="leading-none tracking-wide text-2xl font-black">GOL</div>
+              <div class="text-[11px] font-medium text-emerald-100/90 mt-0.5">Anota gol a favor o autogol</div>
+            </div>
+          </div>
+          <i data-lucide="chevron-right" class="w-6 h-6 text-emerald-200"></i>
+        </button>
+
+        <!-- TARJETAS: AMARILLA Y ROJA (BOTONES GIGANTES EN GRILLA) -->
+        <div class="grid grid-cols-2 gap-3">
+          <!-- BOTÓN TARJETA AMARILLA GIGANTE -->
+          <button id="btnActionYellow" class="touch-btn py-4 px-3 rounded-2xl bg-gradient-to-br from-amber-400 to-yellow-500 hover:from-amber-300 hover:to-yellow-400 text-slate-950 font-black flex flex-col items-center justify-center shadow-lg shadow-amber-950/40 border border-yellow-300 transition-transform min-h-[110px]">
+            <div class="w-9 h-12 bg-amber-200 border-2 border-amber-500 rounded shadow-md mb-2 flex items-center justify-center">
+              <span class="text-amber-800 text-xs font-bold">🟨</span>
+            </div>
+            <span class="text-base font-black leading-tight tracking-tight uppercase">T. AMARILLA</span>
+            <span class="text-[10px] text-amber-900 font-bold mt-0.5">Amonestación</span>
+          </button>
+
+          <!-- BOTÓN TARJETA ROJA GIGANTE -->
+          <button id="btnActionRed" class="touch-btn py-4 px-3 rounded-2xl bg-gradient-to-br from-red-600 to-rose-700 hover:from-red-500 hover:to-rose-600 text-white font-black flex flex-col items-center justify-center shadow-lg shadow-rose-950/50 border border-rose-400/40 transition-transform min-h-[110px]">
+            <div class="w-9 h-12 bg-red-500 border-2 border-red-300 rounded shadow-md mb-2 flex items-center justify-center">
+              <span class="text-white text-xs font-bold">🟥</span>
+            </div>
+            <span class="text-base font-black leading-tight tracking-tight uppercase">T. ROJA</span>
+            <span class="text-[10px] text-rose-200 font-semibold mt-0.5">Expulsión directa</span>
+          </button>
+        </div>
+
+        <!-- BOTONES SECUNDARIOS: SUSTITUCIÓN E INCIDENCIA -->
+        <div class="grid grid-cols-2 gap-3">
+          <button id="btnActionSub" class="touch-btn py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-sm flex items-center justify-center gap-2 border border-slate-800 shadow">
+            <i data-lucide="arrow-left-right" class="w-4 h-4 text-cyan-400"></i>
+            <span>Sustitución</span>
+          </button>
+          
+          <button id="btnActionIncident" class="touch-btn py-3 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-slate-200 font-bold text-sm flex items-center justify-center gap-2 border border-slate-800 shadow">
+            <i data-lucide="alert-triangle" class="w-4 h-4 text-orange-400"></i>
+            <span>Incidencia / Falta</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- FEED DE ÚLTIMOS EVENTOS EN VIVO -->
+      <section class="bg-slate-900/60 rounded-2xl p-4 border border-slate-800/80">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <i data-lucide="activity" class="w-3.5 h-3.5 text-blue-400"></i>
+            Acontecimientos del Partido
+          </h3>
+          <span id="eventsCountBadge" class="text-[10px] px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 font-mono">0 eventos</span>
+        </div>
+
+        <div id="liveEventsList" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+          <!-- Filled dynamically by JavaScript -->
+          <div class="text-center py-6 text-slate-400 text-xs">
+            Sin acontecimientos registrados aún.<br>Usa los botones superiores al pitar una falta, gol o tarjeta.
+          </div>
+        </div>
+      </section>
+    </div>
+
+    <!-- VIEW 2: ALINEACIONES (Planillas de Equipos) -->
+    <div id="viewLineups" class="hidden space-y-4">
+      <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="users" class="w-4 h-4 text-emerald-400"></i>
+            Nómina de Jugadores
+          </h2>
+          <!-- Selector de Equipo -->
+          <div class="flex rounded-lg bg-slate-800 p-1 border border-slate-700">
+            <button id="tabTeamHome" class="px-3 py-1 text-xs font-bold rounded-md bg-blue-600 text-white transition-all">Halcones (L)</button>
+            <button id="tabTeamAway" class="px-3 py-1 text-xs font-bold rounded-md text-slate-400 hover:text-white transition-all">San Martín (V)</button>
+          </div>
+        </div>
+
+        <div id="lineupContainer" class="space-y-3">
+          <!-- Filled dynamically -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 3: MINUTO A MINUTO (Historial Cronológico) -->
+    <div id="viewTimeline" class="hidden space-y-4">
+      <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-sm font-extrabold text-white flex items-center gap-2">
+            <i data-lucide="clock" class="w-4 h-4 text-amber-400"></i>
+            Historial Cronológico Completo
+          </h2>
+        </div>
+        <div id="fullTimelineList" class="space-y-2">
+          <!-- Dynamic -->
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW 4: FINALIZAR Y ENVIAR PLANILLA (RF-12, RF-13) -->
+    <div id="viewFinalize" class="hidden space-y-4">
+      <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 space-y-4">
+        <div class="text-center pb-2 border-b border-slate-800">
+          <div class="w-12 h-12 rounded-full bg-emerald-500/20 text-emerald-400 mx-auto flex items-center justify-center mb-2">
+            <i data-lucide="clipboard-check" class="w-6 h-6"></i>
+          </div>
+          <h2 class="text-base font-black text-white">Cierre de Planilla Digital</h2>
+          <p class="text-xs text-slate-400 mt-1">Revisa el marcador e incidencias antes de enviar a oficialización administrativa.</p>
+        </div>
+
+        <!-- Resumen Marcador -->
+        <div class="bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+          <span class="text-[11px] text-slate-400 font-bold uppercase tracking-wider">MARCADOR FINAL</span>
+          <div class="flex items-center justify-center gap-4 my-2">
+            <span class="font-extrabold text-sm text-blue-400" id="finalHomeName">Los Halcones</span>
+            <span class="font-mono text-3xl font-black text-white" id="finalScoreDisplay">0 - 0</span>
+            <span class="font-extrabold text-sm text-red-400" id="finalAwayName">San Martín</span>
+          </div>
+        </div>
+
+        <!-- Observaciones e Informe Arbitral -->
+        <div>
+          <label class="block text-xs font-bold text-slate-300 uppercase tracking-wider mb-1">
+            Informe y Observaciones del Árbitro
+          </label>
+          <textarea id="refereeNotesInput" rows="4" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-slate-200 placeholder-slate-400 focus:outline-none focus:border-emerald-500" placeholder="Escribe aquí observaciones disciplinarias, comportamiento del público, estado del campo o incidentes relevantes..."></textarea>
+        </div>
+
+        <!-- Botón de Envío Destacado -->
+        <button id="btnSubmitSheet" class="touch-btn w-full py-4 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 text-white font-black text-base flex items-center justify-center gap-2 shadow-xl shadow-emerald-900/40 border border-emerald-400/40">
+          <i data-lucide="send" class="w-5 h-5"></i>
+          <span>ENVIAR PLANILLA A REVISIÓN</span>
+        </button>
+
+        <p class="text-[11px] text-center text-slate-400">
+          Al enviar la planilla, su estado pasará a <strong>EN REVISIÓN</strong> para que el administrador del torneo proceda con la oficialización definitiva (RF-13).
+        </p>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- MODAL: REGISTRAR GOL (⚽) -->
+  <div id="modalGoal" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
+          <span class="text-2xl">⚽</span> Registrar Gol
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- 1. Equipo Beneficiado -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">1. EQUIPO QUE ANOTA</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="goalTeamHome" class="team-select-btn active py-2.5 px-3 rounded-xl bg-blue-600 text-white font-bold text-xs border-2 border-blue-400 text-center">Los Halcones (L)</button>
+            <button id="goalTeamAway" class="team-select-btn py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border-2 border-transparent text-center">San Martín (V)</button>
+          </div>
+        </div>
+
+        <!-- 2. Jugador Goleador -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">2. AUTOR DEL GOL</label>
+          <select id="goalPlayerSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500">
+            <!-- Filled dynamically -->
+          </select>
+        </div>
+
+        <!-- 3. Tipo y Minuto -->
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">TIPO DE ANOTACIÓN</label>
+            <select id="goalTypeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+              <option value="GOAL">Jugada / Acción</option>
+              <option value="PENALTY">Tiro Penal</option>
+              <option value="FREE_KICK">Tiro Libre Directo</option>
+              <option value="HEAD">Cabezazo</option>
+              <option value="OWN_GOAL">Autogol Rival</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-400 mb-1">MINUTO</label>
+            <input id="goalMinuteInput" type="number" min="0" max="130" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white text-center font-mono font-bold" value="1">
+          </div>
+        </div>
+      </div>
+
+      <button id="btnConfirmGoal" class="touch-btn w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-900/40">
+        <i data-lucide="check" class="w-5 h-5"></i>
+        <span>CONFIRMAR GOL</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: REGISTRAR TARJETA (🟨 / 🟥) -->
+  <div id="modalCard" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 id="modalCardTitle" class="text-base font-black text-white flex items-center gap-2">
+          <span id="modalCardIcon">🟨</span> Tarjeta Disciplinaria
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <!-- Equipo -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">EQUIPO</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="cardTeamHome" class="card-team-btn active py-2.5 px-3 rounded-xl bg-blue-600 text-white font-bold text-xs border-2 border-blue-400 text-center">Los Halcones (L)</button>
+            <button id="cardTeamAway" class="card-team-btn py-2.5 px-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border-2 border-transparent text-center">San Martín (V)</button>
+          </div>
+        </div>
+
+        <!-- Jugador -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">JUGADOR INFRACCIONADO</label>
+          <select id="cardPlayerSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-amber-500">
+            <!-- Dynamic -->
+          </select>
+        </div>
+
+        <!-- Motivo y Minuto -->
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">MOTIVO / CAUSAL DE LA SANCIÓN</label>
+          <select id="cardReasonSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+            <option value="Conducta antideportiva">Conducta antideportiva</option>
+            <option value="Falta temeraria">Falta temeraria</option>
+            <option value="Reclamos reiterados al árbitro">Reclamos reiterados al árbitro</option>
+            <option value="Retardo en la reanudación del juego">Retardo en la reanudación del juego</option>
+            <option value="Juego brusco grave">Juego brusco grave</option>
+            <option value="Conducta violenta / Agresión">Conducta violenta / Agresión</option>
+            <option value="Lenguaje injurioso o grosero">Lenguaje injurioso o grosero</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">MINUTO DEL SUCESO</label>
+          <input id="cardMinuteInput" type="number" min="0" max="130" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white text-center font-mono font-bold" value="1">
+        </div>
+      </div>
+
+      <button id="btnConfirmCard" class="touch-btn w-full py-3.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-sm flex items-center justify-center gap-2 shadow-lg">
+        <i data-lucide="check" class="w-5 h-5"></i>
+        <span id="btnConfirmCardText">APLICAR AMONESTACIÓN</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: SUSTITUCIÓN (🔄) -->
+  <div id="modalSub" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
+          <i data-lucide="arrow-left-right" class="w-5 h-5 text-cyan-400"></i> Registrar Cambio
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">EQUIPO</label>
+          <div class="grid grid-cols-2 gap-2">
+            <button id="subTeamHome" class="sub-team-btn active py-2 px-3 rounded-xl bg-blue-600 text-white font-bold text-xs border border-blue-400 text-center">Los Halcones</button>
+            <button id="subTeamAway" class="sub-team-btn py-2 px-3 rounded-xl bg-slate-800 text-slate-300 font-bold text-xs border border-transparent text-center">San Martín</button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-rose-400 mb-1">🔻 SALE (TITULAR EN CANCHA)</label>
+          <select id="subPlayerOutSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-emerald-400 mb-1">🔺 ENTRA (SUPLENTE EN BANCA)</label>
+          <select id="subPlayerInSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none"></select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">MINUTO DEL CAMBIO</label>
+          <input id="subMinuteInput" type="number" min="0" max="130" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white text-center font-mono font-bold" value="1">
+        </div>
+      </div>
+
+      <button id="btnConfirmSub" class="touch-btn w-full py-3.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg">
+        <i data-lucide="check" class="w-5 h-5"></i>
+        <span>REGISTRAR CAMBIO</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- MODAL: INCIDENCIA / RIÑA (⚠️) -->
+  <div id="modalIncident" class="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm hidden flex items-end sm:items-center justify-center p-0 sm:p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-t-3xl sm:rounded-2xl max-w-md w-full p-5 space-y-4 shadow-2xl">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="text-base font-black text-white flex items-center gap-2">
+          <i data-lucide="alert-triangle" class="w-5 h-5 text-orange-400"></i> Registrar Incidencia Extraordinaria
+        </h3>
+        <button class="close-modal text-slate-400 hover:text-white"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+
+      <div class="space-y-3">
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">TIPO DE INCIDENCIA</label>
+          <select id="incidentTypeSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+            <option value="FIGHT">Riña / Pelea colectiva</option>
+            <option value="FIELD_ABANDONMENT">Abandono de cancha de un equipo</option>
+            <option value="DEFAULT_NO_SHOW">Incomparecencia (W.O.)</option>
+            <option value="SUSPENSION">Suspensión temporal del encuentro</option>
+            <option value="INCIDENT">Incidente con público o barra</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">EQUIPO INVOLUCRADO</label>
+          <select id="incidentTeamSelect" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white focus:outline-none">
+            <option value="HOME">Los Halcones (Local)</option>
+            <option value="AWAY">San Martín (Visitante)</option>
+            <option value="BOTH">Ambos Equipos</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold text-slate-400 mb-1">DESCRIPCIÓN DETALLADA</label>
+          <textarea id="incidentDescInput" rows="3" class="w-full bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-xs text-white placeholder-slate-400 focus:outline-none" placeholder="Describe brevemente lo acontecido para el informe disciplinario..."></textarea>
+        </div>
+      </div>
+
+      <button id="btnConfirmIncident" class="touch-btn w-full py-3.5 rounded-xl bg-orange-600 hover:bg-orange-500 text-white font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg">
+        <i data-lucide="check" class="w-5 h-5"></i>
+        <span>REGISTRAR INCIDENCIA</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- BOTTOM NAVIGATION BAR (Mobile Tab Bar) -->
+  <nav class="fixed bottom-0 inset-x-0 z-40 bg-slate-900/95 backdrop-blur border-t border-slate-800 pb-safe">
+    <div class="max-w-md mx-auto grid grid-cols-4 py-1.5 px-2">
+      <!-- Tab Cancha / En Vivo -->
+      <button class="nav-tab active flex flex-col items-center justify-center py-1 text-emerald-400" data-view="viewLive">
+        <i data-lucide="play-circle" class="w-5 h-5 mb-0.5"></i>
+        <span class="text-[10px] font-extrabold">En Cancha</span>
+      </button>
+
+      <!-- Tab Alineaciones -->
+      <button class="nav-tab flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200" data-view="viewLineups">
+        <i data-lucide="users" class="w-5 h-5 mb-0.5"></i>
+        <span class="text-[10px] font-medium">Nóminas</span>
+      </button>
+
+      <!-- Tab Minuto a Minuto -->
+      <button class="nav-tab flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200" data-view="viewTimeline">
+        <i data-lucide="list-ordered" class="w-5 h-5 mb-0.5"></i>
+        <span class="text-[10px] font-medium">Eventos</span>
+      </button>
+
+      <!-- Tab Finalizar Planilla -->
+      <button class="nav-tab flex flex-col items-center justify-center py-1 text-slate-400 hover:text-slate-200" data-view="viewFinalize">
+        <i data-lucide="send" class="w-5 h-5 mb-0.5"></i>
+        <span class="text-[10px] font-medium">Finalizar</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Notification Toast Container -->
+  <div id="toastContainer" class="fixed top-14 inset-x-4 z-50 pointer-events-none flex flex-col items-center space-y-2"></div>
+
+  <!-- Application Logic -->
+  <script src="app.js"></script>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(() => {});
+      });
+    }
+  </script>
+</body>
+</html>
+

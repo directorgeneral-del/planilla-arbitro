@@ -1,0 +1,17 @@
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Interfaz móvil responsive diseñada específicamente para el uso en cancha por parte del cuerpo arbitral, conforme a las especificaciones de los requerimientos funcionales (**RF-11, RF-12, RF-13**) y la sección **9.3 (\"Pantallas y Navegación del Árbitro\")** del PRD del proyecto `001_Torneo_Futbol`.",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/cli": "^7.6.10",
+    "@capacitor/core": "^8.6.0"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "appId": "com.urkusoft.torneofutbol.arbitro",
+  "appName": "Planilla Arbitro",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https",
+    "cleartext": true
+  }
+}
+
