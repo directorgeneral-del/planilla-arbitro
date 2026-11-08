@@ -29,10 +29,10 @@ jobs:
       # Por ejemplo, si es Android nativo:
       - name: Otorgar permisos de ejecución a gradlew
         run: chmod +x gradlew
-        working-directory: android # Ajusta la ruta si tu carpeta de android está en la raíz
+        
 
       # Ejemplo de compilación con Gradle:
       - name: Compilar APK de lanzamiento
         run: ./gradlew assembleRelease
-        working-directory: android
+        
 
