@@ -13,7 +13,7 @@ jobs:
       - name: Checkout del código
         uses: actions/checkout@v4
 
-      # 2. Configurar Java JDK 21 (Requerida por la versión actual de Capacitor)
+      # 2. Configurar Java JDK 21
       - name: Configurar Java JDK 21
         uses: actions/setup-java@v5
         with:
@@ -48,12 +48,16 @@ jobs:
           fi
           chmod +x "$GRADLEW_PATH"
 
-      # 6. Compilar el APK de Android
+      # 6. Compilar el APK excluyendo las dependencias duplicadas de Kotlin
       - name: Compilar APK de lanzamiento
         run: |
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
           cd $(dirname "$GRADLEW_PATH")
-          ./gradlew assembleDebug --stacktrace
+          ./gradlew assembleDebug \
+            -Pandroid.useAndroidX=true \
+            -Pandroid.enableJetifier=true \
+            -Dorg.gradle.project.kotlin.stdlib.default.dependency=false \
+            --stacktrace
 
       # 7. Subir el APK generado como Artefacto descargable
       - name: Subir APK generado
