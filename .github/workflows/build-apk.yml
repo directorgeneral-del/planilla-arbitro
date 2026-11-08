@@ -21,22 +21,20 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. Configurar Node.js
+      # 3. Configurar Node.js versión 20 (Requerida por Capacitor)
       - name: Configurar Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
 
       # 4. Instalar dependencias de Node y sincronizar Capacitor
       - name: Instalar dependencias y sincronizar Capacitor
         run: |
-          # Buscar la carpeta donde está package.json (frontend o raíz)
           PACKAGE_PATH=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1)
           PROJECT_DIR=$(dirname "$PACKAGE_PATH")
           echo "Navegando a: $PROJECT_DIR"
           cd "$PROJECT_DIR"
           
-          # Instalar paquetes de npm y sincronizar los archivos de android
           npm install
           npx cap sync android
 
@@ -57,7 +55,7 @@ jobs:
           cd $(dirname "$GRADLEW_PATH")
           ./gradlew assembleDebug --stacktrace
 
-      # 7. Subir el APK generado
+      # 7. Subir el APK generado como Artefacto descargable
       - name: Subir APK generado
         uses: actions/upload-artifact@v4
         with:
