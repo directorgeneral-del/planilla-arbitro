@@ -28,11 +28,13 @@ jobs:
       # Aquí abajo deben ir los comandos específicos de tu proyecto para compilar...
       # Por ejemplo, si es Android nativo:
       - name: Otorgar permisos de ejecución a gradlew
-        run: chmod +x gradlew
+        run: find . -name gradlew -exec chmod +x {} +
         
 
       # Ejemplo de compilación con Gradle:
       - name: Compilar APK de lanzamiento
-        run: ./gradlew assembleRelease
-        
+        run: |
+  GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+  cd $(dirname "$GRADLEW_PATH")
+  ./gradlew assembleDebug
 
