@@ -38,7 +38,30 @@ jobs:
           npm install
           npx cap sync android
 
-      # 5. Otorgar permisos de ejecución a gradlew
+      # 5. Configurar regla global para eliminar kotlin-stdlib-jdk7 y jdk8 duplicados
+      - name: Forzar resolución de dependencias Kotlin
+        run: |
+          GRADLEW_PATH=$(find . -name gradlew | head -n 1)
+          ANDROID_DIR=$(dirname "$GRADLEW_PATH")
+          
+          cat << 'EOF' >> "$ANDROID_DIR/build.gradle"
+
+          allprojects {
+              configurations.all {
+                  resolutionStrategy {
+                      eachDependency { DependencyResolveDetails details ->
+                          if (details.requested.group == 'org.jetbrains.kotlin') {
+                              if (details.requested.name == 'kotlin-stdlib-jdk7' || details.requested.name == 'kotlin-stdlib-jdk8') {
+                                  details.useTarget "org.jetbrains.kotlin:kotlin-stdlib:${details.requested.version}"
+                              }
+                          }
+                      }
+                  }
+              }
+          }
+          EOF
+
+      # 6. Otorgar permisos de ejecución a gradlew
       - name: Otorgar permisos a gradlew
         run: |
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
@@ -48,18 +71,14 @@ jobs:
           fi
           chmod +x "$GRADLEW_PATH"
 
-      # 6. Compilar el APK excluyendo las dependencias duplicadas de Kotlin
+      # 7. Compilar el APK de Android
       - name: Compilar APK de lanzamiento
         run: |
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
           cd $(dirname "$GRADLEW_PATH")
-          ./gradlew assembleDebug \
-            -Pandroid.useAndroidX=true \
-            -Pandroid.enableJetifier=true \
-            -Dorg.gradle.project.kotlin.stdlib.default.dependency=false \
-            --stacktrace
+          ./gradlew assembleDebug --stacktrace
 
-      # 7. Subir el APK generado como Artefacto descargable
+      # 8. Subir el APK generado como Artefacto descargable
       - name: Subir APK generado
         uses: actions/upload-artifact@v4
         with:
