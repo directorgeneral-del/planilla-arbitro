@@ -21,28 +21,43 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      # 3. Configurar Android SDK
-      - name: Configurar Android SDK
-        uses: android-actions/setup-android@v4
+      # 3. Configurar Node.js
+      - name: Configurar Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-      # 4. Localizar gradlew y otorgar permisos de ejecución
-      - name: Otorgar permisos de ejecución a gradlew
+      # 4. Instalar dependencias de Node y sincronizar Capacitor
+      - name: Instalar dependencias y sincronizar Capacitor
+        run: |
+          # Buscar la carpeta donde está package.json (frontend o raíz)
+          PACKAGE_PATH=$(find . -name package.json -not -path "*/node_modules/*" | head -n 1)
+          PROJECT_DIR=$(dirname "$PACKAGE_PATH")
+          echo "Navegando a: $PROJECT_DIR"
+          cd "$PROJECT_DIR"
+          
+          # Instalar paquetes de npm y sincronizar los archivos de android
+          npm install
+          npx cap sync android
+
+      # 5. Otorgar permisos de ejecución a gradlew
+      - name: Otorgar permisos a gradlew
         run: |
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
           if [ -z "$GRADLEW_PATH" ]; then
-            echo "Error: No se encontró el archivo 'gradlew' en todo el proyecto."
+            echo "Error: No se encontró gradlew"
             exit 1
           fi
           chmod +x "$GRADLEW_PATH"
 
-      # 5. Compilar el archivo APK en el directorio exacto donde esté gradlew
+      # 6. Compilar el APK de Android
       - name: Compilar APK de lanzamiento
         run: |
           GRADLEW_PATH=$(find . -name gradlew | head -n 1)
           cd $(dirname "$GRADLEW_PATH")
           ./gradlew assembleDebug --stacktrace
 
-      # 6. Subir el APK generado como Artefacto descargable
+      # 7. Subir el APK generado
       - name: Subir APK generado
         uses: actions/upload-artifact@v4
         with:
